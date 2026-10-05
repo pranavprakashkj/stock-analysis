@@ -1,0 +1,36 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Market data and run outputs
+/data/
+/runs/
+*.sqlite
+*.sqlite3
+*.db
+*.parquet
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.import_linter_cache/
+.coverage
+coverage.lcov
+htmlcov/
+
+# Model weights / caches
+/models/
+.cache/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Claude Code local permission approvals (agent tooling, not project configuration)
+.claude/settings.json

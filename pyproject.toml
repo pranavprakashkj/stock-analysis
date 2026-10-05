@@ -1,0 +1,100 @@
+[project]
+name = "trading"
+version = "0.1.0"
+description = "NSE systematic trading system: research, backtesting and paper trading (see SPEC.md)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.21,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.15",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+# Markdown code blocks in SPEC/ADRs are illustrative design sketches, not source; keep ruff off them.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "TID251"]
+
+[tool.ruff.lint.per-file-ignores]
+# DC3 bans apply to the domain only. Keeping them in this single root config (instead of a nested
+# ruff.toml) means `ruff check --config pyproject.toml` cannot silently drop them.
+"!src/trading/domain/**" = ["TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# DC3: the domain is deterministic; time and randomness are injected from the application layer.
+"datetime.datetime.now".msg = "Wall-clock read in domain (DC3): inject the trading date instead."
+"datetime.datetime.utcnow".msg = "Wall-clock read in domain (DC3): inject the trading date instead."
+"datetime.datetime.today".msg = "Wall-clock read in domain (DC3): inject the trading date instead."
+"datetime.date.today".msg = "Wall-clock read in domain (DC3): inject the trading date instead."
+"time.time".msg = "Wall-clock read in domain (DC3): inject time from the application layer."
+"time.time_ns".msg = "Wall-clock read in domain (DC3): inject time from the application layer."
+"random".msg = "Randomness in domain (DC3): pass seeded values in from the application layer."
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+# Pydantic's own plugin: precise model __init__ signatures, frozen fields, optional settings fields.
+plugins = ["pydantic.mypy"]
+
+[tool.importlinter]
+root_package = "trading"
+# Required so that forbidden contracts can name third-party and stdlib packages.
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+# DC1 / ADR-010: dependencies point downward only (each layer may import the layers below it).
+name = "Layers: infrastructure > application > domain"
+type = "layers"
+layers = ["trading.infrastructure", "trading.application", "trading.domain"]
+
+[[tool.importlinter.contracts]]
+# DC2 / ADR-010 / ADR-016: the domain is pure Python. Layer violations are covered by the contract above.
+name = "Domain purity: no dataframe, settings, model, network or database libraries"
+type = "forbidden"
+source_modules = ["trading.domain"]
+forbidden_modules = [
+    "polars",            # dataframes stay in application/infrastructure (ADR-010)
+    "pyarrow",           # dataframe/Parquet backend (ADR-010)
+    "pydantic",          # boundary validation library; domain uses frozen dataclasses (ADR-010)
+    "pydantic_settings", # configuration loading is infrastructure (ADR-010)
+    "anthropic",         # Claude SDK: models cannot reach domain logic (ADR-016)
+    "laya",              # Laya package (ADR-016)
+    "torch",             # model runtime (ADR-016)
+    "transformers",      # model runtime (ADR-016)
+    "httpx",             # HTTP client (DC2)
+    "requests",          # HTTP client (DC2)
+    "http",              # stdlib HTTP client/server (DC2)
+    "urllib",            # stdlib URL fetching (DC2)
+    "socket",            # stdlib raw network access (DC2)
+    "sqlite3",           # database driver (DC2)
+]
+
+[[tool.importlinter.contracts]]
+# SPEC §2: the domain does no I/O. Logging, environment variables and config files are read in
+# infrastructure (task 1.3); application code may log through stdlib `logging` only.
+name = "Domain imports no logging, os or tomllib"
+type = "forbidden"
+source_modules = ["trading.domain"]
+forbidden_modules = [
+    "logging",           # log output is I/O; the JSON formatter lives in infrastructure
+    "os",                # environment variables and file system
+    "tomllib",           # config files
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config"]
