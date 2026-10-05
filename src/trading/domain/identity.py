@@ -15,8 +15,11 @@ class IdentityError(Exception):
 
 
 def _require_token(kind: str, value: str) -> None:
-    if not value or any(character.isspace() for character in value):
-        raise ValueError(f"{kind} must be non-empty and contain no whitespace: {value!r}")
+    """Non-empty printable text without whitespace. No normalisation (case, punctuation) applied."""
+    if not isinstance(value, str):
+        raise TypeError(f"{kind} must be a str, not {type(value).__name__}")
+    if not value or not value.isprintable() or any(c.isspace() for c in value):
+        raise ValueError(f"{kind} must be non-empty printable text without whitespace: {value!r}")
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -46,6 +49,8 @@ class Isin:
     value: str
 
     def __post_init__(self) -> None:
+        if not isinstance(self.value, str):
+            raise TypeError(f"Isin must be a str, not {type(self.value).__name__}")
         if not _ISIN_SHAPE.fullmatch(self.value):
             raise ValueError(f"not an ISIN-shaped identifier: {self.value!r}")
 

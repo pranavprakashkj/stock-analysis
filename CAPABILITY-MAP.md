@@ -10,7 +10,7 @@ Module ids are stable (kebab-case, never renamed). Dependency direction is
 | Module id | Responsibility | Depends on |
 |---|---|---|
 | `core-domain` | Value objects: Instrument, Symbol, TradingDate, Bar, OpenAuctionQuote, CorporateAction, IndexMembership, FeatureSet, Signal, TargetWeight, ProposedOrder, RiskApprovedOrder, Fill, Position, PortfolioSnapshot, Money, ReasonCode | — |
-| `calendar` | NSE session rules over a supplied holiday/special-session list | core-domain |
+| `calendar` | Session arithmetic over a supplied, versioned list of every session (special sessions marked; no weekday or holiday rule) | core-domain |
 | `strategy` | `Strategy` protocol + implementations (baseline momentum first). FeatureSet → Signals | core-domain |
 | `portfolio-construction` | Signals → TargetWeights | core-domain |
 | `risk` | `RiskEngine`: sizing, hard limits, kill switch, pauses; the only producer of `RiskApprovedOrder` | core-domain |

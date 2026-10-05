@@ -23,9 +23,16 @@ class HasKnowledgeAndEffectiveDate(HasKnowledgeTime, Protocol):
 
 
 def require_aware(moment: datetime) -> datetime:
+    if not isinstance(moment, datetime):
+        raise TypeError(f"knowledge time must be a datetime, not {type(moment).__name__}")
     if moment.tzinfo is None or moment.utcoffset() is None:
         raise ValueError(f"datetime must be timezone-aware: {moment!r}")
     return moment
+
+
+def start_of_date(day: date) -> datetime:
+    """The first instant of `day` in IST, the trading calendar's timezone."""
+    return datetime.combine(day, time.min, tzinfo=IST)
 
 
 def end_of_date(day: date) -> datetime:

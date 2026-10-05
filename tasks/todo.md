@@ -61,8 +61,12 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
   - `infrastructure/storage/canonical.py` (canonical-v1 snapshot id, SourceFileRecord, manifest hash)
   - architecture follow-ups (package-init import ban; DC3 moved into the root config)
 
-- [ ] **1.4 Market-data value objects (domain)**
+- [x] **1.4 Market-data value objects (domain)** (done 2026-10-05; awaiting owner review)
   - Objective: immutable, validated domain types for market data.
+  - As built: `market.Bar` (adds published `traded_value`, ADR-012 §2a); `corporate_actions.CorporateAction` (`known_at` optional only without an announcement date: None = unresolved, U1-U3; kind-specific terms deferred to 1.12); `universe.IndexMembershipChange` (IndexMembership as dated ADDED/REMOVED events, closed `IndexName`), `universe.LiquidityThresholds`; shared exact-type checks in `domain/checks.py`; R1 identity/timing refined (type checks, control characters, `start_of_date`). Dev dependency `hypothesis`.
+  - Unresolved corporate actions (owner clarification 2026-10-05; ADR-018 §2): every record *carries* the `known_at` field, but only a resolved one *has* a knowledge time.
+    - `known_at=None` = unresolved: a parsed record that is visible at no `as_of`, never given a fallback timestamp, and influences nothing downstream until resolved.
+    - Still unresolved where a data-quality or evaluation boundary needs it → data-quality failure (1.10).
   - Files: `src/trading/domain/market.py` (Bar keyed by `InstrumentId`, carrying `Series`, `observation_date` and `known_at`; reuse R1 identity/timing/availability types, do not duplicate them), `src/trading/domain/corporate_actions.py` (typed kinds per ADR-007; published ex-date, record date, optional announcement date; source and confidence fields), `src/trading/domain/universe.py` (IndexMembership; `LiquidityThresholds` value object with required fields `min_price`, `min_median_traded_value`, `max_participation`, `order_liquidity_fraction`: **no defaults, no values, not wired to any loader**, ADR-012 §2a); tests.
   - Dependencies: 1.2.
   - Acceptance: frozen dataclasses; invariants enforced (prices > 0; high ≥ max(open, close); low ≤ min(open, close); volume ≥ 0); stdlib only.
@@ -70,8 +74,9 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
   - Skill: `api-and-interface-design`, `test-driven-development`.
   - Must NOT: add `OpenAuctionQuote` (execution concept, Phase 4), Signal, Order, Fill, Position, Money, or any ledger/risk type.
 
-- [ ] **1.5 Trading calendar (domain)**
+- [x] **1.5 Trading calendar (domain)** (done 2026-10-05; awaiting owner review)
   - Objective: session arithmetic over a versioned reference list.
+  - As built: `domain/calendar.py` `TradingCalendar(version, coverage_start, coverage_end, sessions)`, an explicit sorted session list (no weekday rule), `SessionKind` REGULAR/SPECIAL, `OutsideCalendarError` (unknown) distinct from `NotASessionError`; `reference/calendar/format.md` (format only, no data); synthetic Jan-2030 fixture in `tests/domain/test_calendar.py`. Knowledge time of calendar entries (ADR-018 §2) is **unresolved** and recorded in format.md for 1.9, 1.11 and 4.0.
   - Files: `src/trading/domain/calendar.py`, `reference/calendar/format.md`, a small synthetic calendar fixture; tests.
   - Dependencies: 1.4.
   - Acceptance: next/previous session, is-session, sessions-between; special sessions representable; dates outside the loaded range raise explicitly.
@@ -92,7 +97,7 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
   - Objective: one reusable suite every `MarketDataProvider` must pass.
   - Files: `tests/contract/market_data_contract.py`, `tests/contract/test_fake_provider.py`.
   - Dependencies: 1.6.
-  - Acceptance (ADR-019 §2–3): **known-by-`as_of`** (nothing with `known_at > as_of`; an action announced before `as_of` with a later ex-date IS returned) and **effective-on-T among known** are tested separately; corporate actions are never filtered by ex-date alone; knowledge time for actions without an announcement date is not inferred (**no fallback policy** in Phase 1); bars of all series returned and tagged; legitimate absence returned as typed `Absence`, never omitted; membership by effective date and knowledge time; deterministic ordering; unknown-instrument errors.
+  - Acceptance (ADR-019 §2–3): **known-by-`as_of`** (nothing with `known_at > as_of`; an action announced before `as_of` with a later ex-date IS returned) and **effective-on-T among known** are tested separately; corporate actions are never filtered by ex-date alone; knowledge time for actions without an announcement date is not inferred (**no fallback policy** in Phase 1), and an unresolved action (`known_at=None`) is never returned as known at any `as_of`; bars of all series returned and tagged; legitimate absence returned as typed `Absence`, never omitted; membership by effective date and knowledge time; deterministic ordering; unknown-instrument errors. Calendar: v1 calendars carry no per-entry knowledge time (reference/calendar/format.md), so a provider must not present one as known-as-of any instant on a sealed or look-ahead-sensitive path until that is resolved.
   - Tests: the fake passes. The NSE file provider must pass it in 1.15.
   - Skill: `test-driven-development`, `doubt-driven-development` (look-ahead guarantee).
   - Must NOT: add network or performance tests.
@@ -131,7 +136,7 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
   - Files: `src/trading/application/data_quality.py`, tests.
   - Dependencies: 1.5, 1.7, 1.8, 1.12.
   - Acceptance:
-    - **Blocking failures** (block the snapshot or mark the range unusable, with a reason): `MISSING_OBSERVATION` and unsourced legitimate claims; missing sessions vs calendar; OHLC inconsistency; non-positive prices; duplicates; unmapped symbols; unparsed or unrecognised corporate actions.
+    - **Blocking failures** (block the snapshot or mark the range unusable, with a reason): `MISSING_OBSERVATION` and unsourced legitimate claims; missing sessions vs calendar; OHLC inconsistency; non-positive prices; duplicates; unmapped symbols; unparsed or unrecognised corporate actions; a corporate action whose knowledge time is still unresolved (`known_at=None`) where the range needs it (never inferred, ADR-018 §2).
     - **Not failures** (ADR-019 §3): sourced suspensions, delistings, not-yet-listed periods and series changes; `DATA_UNAVAILABLE` is reported as a coverage gap.
     - Report output for sealed data is an `IntegrityReport` only (ADR-018 §6), built from the R1 closed enums `IntegrityDataset` / `IntegrityRule`; a new rule is a new enum member (reviewed code change), never free text. The runner reads sealed data internally; it never calls `check_access` with an integrity grant.
     - **Review flags only** (U6 unresolved): overnight move > 40% without an action; split/bonus ratio mismatch (ADR-007 C7). Provisional parameters are labelled in the report.
@@ -142,6 +147,7 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
 
 - [ ] **1.11 Parquet snapshot store (infrastructure)**
   - Objective: immutable, content-addressed snapshots.
+  - Open dependency (task 1.5): calendar versions have no per-entry knowledge time yet (ADR-018 §2; reference/calendar/format.md). Partitioning or sealing calendar data by knowledge time needs that resolved first.
   - Files: `src/trading/infrastructure/storage/parquet_snapshots.py`, tests.
   - Dependencies: 1.6, 1.10.
   - Acceptance: snapshot id = R1 `snapshot_id` (canonical-v1, ADR-020), **never** a hash of Parquet bytes; **Parquet round-trip test**: write → read → same id, and re-writing with different writer options gives the same id; source-file manifest stored with `manifest_hash`; an existing id is never overwritten; only validated data is written; Polars native Parquet writer (no pyarrow); prices stored as `DECIMAL`, no float columns. Snapshot metadata records `origin = synthetic | real`, date range, parser versions and data-quality report hash, so ADR-017 sealing and the real-data guard can build on it later. Partition metadata by knowledge-time window (ADR-018 §2) is recorded; sealing itself is not implemented in Phase 1.

@@ -1,8 +1,12 @@
 """ADR-019 §1: InstrumentId is canonical; symbols are dated, display-only references."""
 
+from collections.abc import Callable
 from datetime import date, datetime
+from typing import cast
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from trading.domain.identity import (
     IdentityError,
@@ -102,23 +106,93 @@ def test_entry_requires_an_aware_knowledge_time() -> None:
         _entry(INFRATEL, "ABC", date(2015, 1, 1), None, datetime(2014, 12, 1, 18, 0))
 
 
-@pytest.mark.parametrize("bad", ["", " INS-1", "INS 1"])
-def test_instrument_id_rejects_blank_or_whitespace(bad: str) -> None:
+@pytest.mark.parametrize(
+    "bad",
+    ["", " INS-1", "INS 1", "INS-1\n", "INS\t1", "INS\u00a01", "INS\x001", "INS\x7f1"],
+    ids=["empty", "leading-space", "space", "newline", "tab", "nbsp", "nul", "del"],
+)
+def test_instrument_id_rejects_blank_whitespace_or_control_characters(bad: str) -> None:
     with pytest.raises(ValueError, match="InstrumentId"):
         InstrumentId(bad)
 
 
-@pytest.mark.parametrize("bad", ["", "M M", " TCS"])
-def test_symbol_rejects_blank_or_whitespace(bad: str) -> None:
+@pytest.mark.parametrize(
+    "bad",
+    ["", "M M", " TCS", "TCS\n", "TC\x00S"],
+    ids=["empty", "space", "leading-space", "newline", "nul"],
+)
+def test_symbol_rejects_blank_whitespace_or_control_characters(bad: str) -> None:
     with pytest.raises(ValueError, match="Symbol"):
         Symbol(bad)
+
+
+@pytest.mark.parametrize("cls", [InstrumentId, Symbol, Isin])
+@pytest.mark.parametrize("bad", [1, 1.0, b"INE121J01017", None, ["INS-1"]])
+def test_identifiers_reject_non_strings(cls: Callable[[str], object], bad: object) -> None:
+    with pytest.raises(TypeError, match="must be a str"):
+        cls(cast("str", bad))  # deliberately wrong type
+
+
+def test_symbol_is_not_normalised() -> None:
+    """No exchange-specific normalisation is specified, so values are kept exactly."""
+    assert Symbol("M&M").value == "M&M"
+    assert Symbol("tcs") != Symbol("TCS")
+
+
+def test_identifiers_have_value_equality_and_hash() -> None:
+    assert InstrumentId("INS-1") == InstrumentId("INS-1")
+    assert hash(InstrumentId("INS-1")) == hash(InstrumentId("INS-1"))
+    assert InstrumentId("INS-1") != InstrumentId("INS-2")
+    assert Symbol("TCS") == Symbol("TCS")
+    assert Isin("INE121J01017") == Isin("INE121J01017")
+
+
+def test_an_instrument_id_never_equals_a_symbol_with_the_same_text() -> None:
+    """Identity is never symbol-based: the same text in the two roles is two different values.
+    mypy (strict equality) already rejects this comparison; this checks the runtime too."""
+    assert cast("object", InstrumentId("TCS")) != Symbol("TCS")
+    assert len({InstrumentId("TCS"), Symbol("TCS")}) == 2
+
+
+def test_representation_is_deterministic() -> None:
+    assert repr(InstrumentId("INS-1")) == "InstrumentId(value='INS-1')"
+    assert repr(Symbol("TCS")) == "Symbol(value='TCS')"
+    assert repr(Isin("INE121J01017")) == "Isin(value='INE121J01017')"
+
+
+@pytest.mark.parametrize(
+    "value", [InstrumentId("INS-1"), Symbol("TCS"), Isin("INE121J01017")], ids=repr
+)
+def test_identifiers_are_immutable(value: object) -> None:
+    field = "value"
+    with pytest.raises(AttributeError):
+        setattr(value, field, "OTHER")
+
+
+@given(st.text(min_size=1).filter(lambda s: s.isprintable() and not any(c.isspace() for c in s)))
+def test_any_printable_token_is_a_valid_instrument_id(text: str) -> None:
+    assert InstrumentId(text).value == text
+
+
+@given(st.text(), st.sampled_from([" ", "\t", "\n", "\u2003"]), st.text())
+def test_any_text_containing_whitespace_is_rejected(prefix: str, space: str, suffix: str) -> None:
+    with pytest.raises(ValueError, match="InstrumentId"):
+        InstrumentId(prefix + space + suffix)
 
 
 def test_isin_accepts_iso_6166_shape() -> None:
     assert Isin("INE121J01017").value == "INE121J01017"
 
 
-@pytest.mark.parametrize("bad", ["INE121J0101", "ine121j01017", "1NE121J01017", "INE121J0101X"])
+def test_isin_check_digit_is_not_verified() -> None:
+    """ADR-019 records ISINs as external identifiers; only the shape is checked."""
+    assert Isin("INE121J01010").value == "INE121J01010"  # valid shape, wrong check digit
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["INE121J0101", "ine121j01017", "1NE121J01017", "INE121J0101X", "INE121J01017 ", ""],
+)
 def test_isin_rejects_wrong_shape(bad: str) -> None:
     with pytest.raises(ValueError, match="ISIN"):
         Isin(bad)

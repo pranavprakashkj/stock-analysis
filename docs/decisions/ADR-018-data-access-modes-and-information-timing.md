@@ -51,7 +51,14 @@ Rules:
   except integrity access (§3 B), until a window covering them is registered.
 - Sealing applies to **every date-indexed dataset**: bars (all series), corporate actions, membership changes, identity-map entries
   (symbol/ISIN changes), series changes and typed absences, benchmark TRI, T-bill rates, calendar overrides, and any later feature or
-  model output. Sealing is by **knowledge time**, so every such record carries a `known_at`.
+  model output. Sealing is by **knowledge time**, so every such record carries a `known_at` **field**.
+  - *Clarification (owner, 2026-10-05; wording only, semantics unchanged):* carrying the field is not the same as having a
+    **resolved** knowledge time. A record may carry `known_at = null` when its knowledge time is unresolved, e.g. a corporate
+    action without an announcement date (ADR-007 C3/C4, U1–U3).
+  - An unresolved record is **visible in no mode and at no `as_of`**: visibility functions never treat it as known.
+  - It is never assigned a fallback timestamp. Only an accepted ADR-007 policy can resolve it.
+  - Until resolved it influences no strategy, backtest, evaluation, paper trading or corporate-action adjustment.
+  - If it is still unresolved where a data-quality or evaluation boundary needs it, it is a **data-quality failure**, never an inference.
 
 ### 3. Access modes
 | Mode | Purpose | May read | Returns | Counts as a holdout use? |

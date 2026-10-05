@@ -132,7 +132,7 @@ src/trading/
   infrastructure/   market_data/nse_files, storage/{parquet,sqlite}, alerts, augment/{laya,claude}, cli, api
 dashboard/          React + TS + Vite (Phase 12)
 configs/            strategy, risk-limits, cost-models, evaluation (TOML, validated)
-reference/          curated, versioned: index membership history, calendar holidays/special sessions
+reference/          curated, versioned: index membership history, trading-calendar session lists (special sessions marked)
 data/               imports and snapshots (git-ignored)
 tests/  unit/ · property/ · golden/ · lookahead/ · contract/ · integration/
 ```

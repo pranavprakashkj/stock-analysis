@@ -2,10 +2,19 @@
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from typing import cast
 
 import pytest
 
-from trading.domain.timing import IST, effective_on, end_of_date, is_known, known_by
+from trading.domain.timing import (
+    IST,
+    effective_on,
+    end_of_date,
+    is_known,
+    known_by,
+    require_aware,
+    start_of_date,
+)
 
 
 @dataclass(frozen=True)
@@ -60,3 +69,14 @@ def test_date_only_knowledge_is_conservatively_end_of_that_date() -> None:
 def test_naive_datetimes_are_rejected() -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
         is_known(datetime(2022, 12, 30, 17, 0), AS_OF)
+
+
+@pytest.mark.parametrize("bad", ["2022-12-30T17:00+05:30", date(2022, 12, 30), 1672400000])
+def test_knowledge_time_must_be_a_datetime(bad: object) -> None:
+    with pytest.raises(TypeError, match="must be a datetime"):
+        require_aware(cast("datetime", bad))  # deliberately wrong type
+
+
+def test_start_of_date_is_the_first_ist_instant() -> None:
+    assert start_of_date(date(2022, 12, 30)) == datetime(2022, 12, 30, 0, 0, tzinfo=IST)
+    assert start_of_date(date(2022, 12, 30)) == datetime(2022, 12, 29, 18, 30, tzinfo=UTC)
