@@ -19,6 +19,17 @@ DOMAIN_PURITY_CONTRACT = (
     "Domain purity: no dataframe, settings, model, network or database libraries"
 )
 DOMAIN_NO_IO_CONTRACT = "Domain imports no logging, os or tomllib"
+DOMAIN_NO_FILES_CONTRACT = "Domain imports no filesystem or process modules"
+APPLICATION_NO_NETWORK_CONTRACT = "Application imports no network libraries"
+NO_PROVIDER_SDK_CONTRACT = "No broker or market-data provider SDKs"
+ALL_CONTRACTS = (
+    LAYERS_CONTRACT,
+    DOMAIN_PURITY_CONTRACT,
+    DOMAIN_NO_IO_CONTRACT,
+    DOMAIN_NO_FILES_CONTRACT,
+    APPLICATION_NO_NETWORK_CONTRACT,
+    NO_PROVIDER_SDK_CONTRACT,
+)
 LAYER_PACKAGES = ("domain", "application", "infrastructure")
 
 
@@ -48,7 +59,7 @@ def _lint_imports(root: Path) -> subprocess.CompletedProcess[str]:
 def _broken_contracts(result: subprocess.CompletedProcess[str]) -> set[str]:
     return {
         name
-        for name in (LAYERS_CONTRACT, DOMAIN_PURITY_CONTRACT, DOMAIN_NO_IO_CONTRACT)
+        for name in ALL_CONTRACTS
         if any(name in line and "BROKEN" in line for line in result.stdout.splitlines())
     }
 
@@ -134,12 +145,88 @@ def test_domain_logging_environment_or_config_access_breaks_no_io_contract(
     assert DOMAIN_NO_IO_CONTRACT in _broken_contracts(result), result.stdout + result.stderr
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import pathlib\n",
+        "from pathlib import Path\n",
+        "import shutil\n",
+        "import io\n",
+        "import glob\n",
+        "import tempfile\n",
+        "import subprocess\n",
+    ],
+)
+def test_domain_filesystem_or_process_access_breaks_its_contract(
+    tmp_path: Path, source: str
+) -> None:
+    _make_project(tmp_path, {"domain/bad.py": source})
+
+    result = _lint_imports(tmp_path)
+
+    assert result.returncode != 0
+    assert DOMAIN_NO_FILES_CONTRACT in _broken_contracts(result), result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import http.client\n",
+        "import urllib.request\n",
+        "import socket\n",
+        "import httpx\n",
+        "import requests\n",
+        "import aiohttp\n",
+        "import ssl\n",
+        "import urllib3\n",
+        "import websockets\n",
+        "import smtplib\n",
+    ],
+)
+def test_application_network_access_breaks_its_contract(tmp_path: Path, source: str) -> None:
+    _make_project(tmp_path, {"application/bad.py": source})
+
+    result = _lint_imports(tmp_path)
+
+    assert result.returncode != 0
+    assert APPLICATION_NO_NETWORK_CONTRACT in _broken_contracts(result), (
+        result.stdout + result.stderr
+    )
+
+
+@pytest.mark.parametrize("layer", LAYER_PACKAGES)
+@pytest.mark.parametrize(
+    "sdk",
+    [
+        "upstox_client",
+        "kiteconnect",
+        "SmartApi",
+        "nsepython",
+        "nsepy",
+        "nsetools",
+        "jugaad_data",
+        "yfinance",
+    ],
+)
+def test_provider_sdk_in_any_layer_breaks_its_contract(
+    tmp_path: Path, layer: str, sdk: str
+) -> None:
+    _make_project(tmp_path, {f"{layer}/bad.py": f"import {sdk}\n"})
+
+    result = _lint_imports(tmp_path)
+
+    assert result.returncode != 0
+    assert NO_PROVIDER_SDK_CONTRACT in _broken_contracts(result), result.stdout + result.stderr
+
+
 def test_application_may_use_libraries_forbidden_in_domain(tmp_path: Path) -> None:
     _make_project(
         tmp_path,
         {
             "application/frames.py": "import polars\n",
             "application/log.py": "import logging\n",
+            "application/paths.py": "import pathlib\n",
+            "infrastructure/http_client.py": "import httpx\n",
             "infrastructure/settings.py": "import os\nimport tomllib\nimport pydantic_settings\n",
         },
     )
@@ -160,6 +247,5 @@ def test_real_repository_keeps_all_contracts() -> None:
 
     assert result.returncode == 0, result.stdout + result.stderr
     kept = [line for line in result.stdout.splitlines() if line.endswith(" KEPT")]
-    assert any(LAYERS_CONTRACT in line for line in kept), result.stdout
-    assert any(DOMAIN_PURITY_CONTRACT in line for line in kept), result.stdout
-    assert any(DOMAIN_NO_IO_CONTRACT in line for line in kept), result.stdout
+    for contract in ALL_CONTRACTS:
+        assert any(contract in line for line in kept), (contract, result.stdout)

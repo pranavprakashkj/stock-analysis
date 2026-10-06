@@ -96,6 +96,42 @@ forbidden_modules = [
     "tomllib",           # config files
 ]
 
+[[tool.importlinter.contracts]]
+# SPEC §2: the domain does no I/O. Files and processes belong to infrastructure adapters (task 1.6).
+name = "Domain imports no filesystem or process modules"
+type = "forbidden"
+source_modules = ["trading.domain"]
+forbidden_modules = ["pathlib", "shutil", "io", "glob", "tempfile", "subprocess"]
+
+[[tool.importlinter.contracts]]
+# Ports and orchestration never call the network; adapters in infrastructure do (task 1.6).
+name = "Application imports no network libraries"
+type = "forbidden"
+source_modules = ["trading.application"]
+forbidden_modules = [
+    "http", "urllib", "urllib3", "socket", "ssl", "ftplib", "smtplib",
+    "httpx", "requests", "aiohttp", "websockets",
+]
+
+[[tool.importlinter.contracts]]
+# ADR-001: trading logic depends on ports, never on a provider SDK. A future adapter that needs one
+# is an explicit, reviewed change to this contract.
+name = "No broker or market-data provider SDKs"
+type = "forbidden"
+source_modules = ["trading"]
+forbidden_modules = [
+    "upstox_client",
+    "kiteconnect",
+    "SmartApi",
+    "nsepython",
+    "nsepy",
+    "nsetools",
+    "jugaad_data",
+    "yfinance",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Makes the shared test doubles importable as `fakes` (tests/fakes/); test modules stay unimportable.
+pythonpath = ["tests"]
 addopts = ["--strict-markers", "--strict-config"]

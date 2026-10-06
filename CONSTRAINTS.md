@@ -21,6 +21,8 @@ Tightening is silent; loosening requires an explicit owner decision recorded in 
 | Types (mypy strict), lint/format (ruff), tests (pytest) | **Enforced** since Task 1.1 |
 | Architecture (import-linter; DC1, DC2, DC3, DC12; package `__init__` import ban) | **Enforced** since Task 1.2 / remediation R1 |
 | Domain imports no `logging`, `os` or `tomllib` (import-linter) | **Enforced** since Task 1.3 |
+| Domain imports no filesystem or process modules; application imports no network libraries; no provider SDKs anywhere (import-linter) | **Enforced** since Task 1.6 |
+| Market-data ports, dataset and test fakes: no clock, randomness, environment, files or network (AST scan) | **Enforced** since Task 1.6 |
 | Property tests (hypothesis; derandomised, no example database) | **Enforced** since Task 1.4 |
 | Coverage (pytest-cov) | **Planned**: not installed yet; added in the task that first needs it |
 | Secrets (gitleaks), dependencies (osv-scanner), code security (semgrep) | **Planned**: not installed; owner decision (local vs CI) |

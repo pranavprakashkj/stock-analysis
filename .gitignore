@@ -34,3 +34,5 @@ htmlcov/
 
 # Claude Code local permission approvals (agent tooling, not project configuration)
 .claude/settings.json
+
+tasks/

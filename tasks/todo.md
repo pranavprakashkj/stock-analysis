@@ -84,7 +84,8 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
   - Skill: `test-driven-development`.
   - Must NOT: fetch or populate real holiday lists (a curation task after the access decision).
 
-- [ ] **1.6 Ports and fake provider (application)**
+- [x] **1.6 Ports and fake provider (application)** (done 2026-10-06; awaiting owner review)
+  - As built: `application/ports.py` (`MarketDataProvider`: identity_map, bars, absences, series_changes, corporate_actions, membership_changes, each with keyword-only `as_of`; `SnapshotStore` (**provisional**); `SnapshotId`; errors `UnknownInstrumentError`, `OutsideCoverageError`, `KnowledgeUnavailableError`, `UnknownSnapshotError`). **Deviation:** `application/market_dataset.py` (`MarketDataset`, `DataOrigin`) added as the validated payload of providers and snapshots (coverage, knowledge cut-off, uniqueness, linked series changes). Fake in `tests/fakes/fake_market_data.py` with synthetic fixture `tests/fakes/synthetic_market.py`; pytest `pythonpath = ["tests"]`. `series_changes` was added after review so a known series change is visible from its own knowledge time. Identity ends (`IdentityMapEnd`) were added on the owner hold so an as-of view never shows a symbol's end before it was known. Contracts: domain no filesystem/process modules, application no network, no provider SDKs anywhere.
   - Objective: `MarketDataProvider` and `SnapshotStore` protocols; in-memory fake.
   - Files: `src/trading/application/ports.py`, `tests/fakes/fake_market_data.py`.
   - Dependencies: 1.4.
@@ -95,6 +96,7 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
 
 - [ ] **1.9 Provider contract suite**
   - Objective: one reusable suite every `MarketDataProvider` must pass.
+  - Started in 1.6 as `tests/contract/test_market_data_contract.py` (provider factories in `PROVIDERS`); 1.9 completes it and reconciles the file names below.
   - Files: `tests/contract/market_data_contract.py`, `tests/contract/test_fake_provider.py`.
   - Dependencies: 1.6.
   - Acceptance (ADR-019 §2–3): **known-by-`as_of`** (nothing with `known_at > as_of`; an action announced before `as_of` with a later ex-date IS returned) and **effective-on-T among known** are tested separately; corporate actions are never filtered by ex-date alone; knowledge time for actions without an announcement date is not inferred (**no fallback policy** in Phase 1), and an unresolved action (`known_at=None`) is never returned as known at any `as_of`; bars of all series returned and tagged; legitimate absence returned as typed `Absence`, never omitted; membership by effective date and knowledge time; deterministic ordering; unknown-instrument errors. Calendar: v1 calendars carry no per-entry knowledge time (reference/calendar/format.md), so a provider must not present one as known-as-of any instant on a sealed or look-ahead-sensitive path until that is resolved.
@@ -115,6 +117,7 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
 
 - [ ] **1.8 UDiFF parser and identity mapping (infrastructure)**
   - Objective: parse the UDiFF CM bhavcopy (ISIN, `SctySrs`) and map symbols to stable `InstrumentId`s via a symbol-change list.
+  - Resolved in 1.6 (owner hold, 2026-10-06): a symbol assignment (`IdentityMapEntry`, open-ended) and its end (`IdentityMapEnd`, with `valid_to`) are separate records, each with its own `known_at`. The map builds `IdentityMap(entries, ends)` from the symbol-change list, recording each end at its own announcement time.
   - Files: `.../nse_files/udiff_bhavcopy.py`, `.../nse_files/identity.py`, synthetic fixtures, tests.
   - Dependencies: 1.7.
   - Acceptance: builds the domain `IdentityMap` (dated, non-overlapping); same instrument → same id across the format switch and across symbol changes; an ISIN change without identity evidence is reported, not silently remapped; unmapped symbol discontinuities reported.
@@ -133,6 +136,7 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
 
 - [ ] **1.10 Validation and data-quality report (application)**
   - Objective: rules that block bad data.
+  - From 1.6: `MarketDataset` raises on structural duplicates, so the integrity report must be built from parsed records before a dataset is constructed. Cross-record checks left here: an old-series bar after a series change; a bar outside its symbol's validity; near-duplicate corporate actions (same action from two sources) and a resolved action with an unresolved copy; a calendar session with neither a bar nor an absence (missing observation).
   - Files: `src/trading/application/data_quality.py`, tests.
   - Dependencies: 1.5, 1.7, 1.8, 1.12.
   - Acceptance:
@@ -148,6 +152,7 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
 - [ ] **1.11 Parquet snapshot store (infrastructure)**
   - Objective: immutable, content-addressed snapshots.
   - Open dependency (task 1.5): calendar versions have no per-entry knowledge time yet (ADR-018 §2; reference/calendar/format.md). Partitioning or sealing calendar data by knowledge time needs that resolved first.
+  - Open (from 1.6): the `SnapshotStore` protocol is provisional. A dataset is several tables plus origin, coverage and knowledge cut-off, but ADR-020 defines the id of one table, so the combined id needs an ADR-020 addendum. Provenance (manifest) and metadata are not yet parameters. `read` is unconditioned, so sealing must sit in front of it before real data is stored. Coverage and knowledge cut-off must be persisted (and hashed).
   - Files: `src/trading/infrastructure/storage/parquet_snapshots.py`, tests.
   - Dependencies: 1.6, 1.10.
   - Acceptance: snapshot id = R1 `snapshot_id` (canonical-v1, ADR-020), **never** a hash of Parquet bytes; **Parquet round-trip test**: write → read → same id, and re-writing with different writer options gives the same id; source-file manifest stored with `manifest_hash`; an existing id is never overwritten; only validated data is written; Polars native Parquet writer (no pyarrow); prices stored as `DECIMAL`, no float columns. Snapshot metadata records `origin = synthetic | real`, date range, parser versions and data-quality report hash, so ADR-017 sealing and the real-data guard can build on it later. Partition metadata by knowledge-time window (ADR-018 §2) is recorded; sealing itself is not implemented in Phase 1.
