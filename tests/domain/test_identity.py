@@ -351,3 +351,14 @@ def test_isin_check_digit_is_not_verified() -> None:
 def test_isin_rejects_wrong_shape(bad: str) -> None:
     with pytest.raises(ValueError, match="ISIN"):
         Isin(bad)
+
+
+def test_ends_are_listed_in_content_order_not_input_order() -> None:
+    entries = (_entry(INFRATEL, "ABC", date(2011, 1, 3)), _entry(OTHER, "XYZ", date(2011, 1, 3)))
+    ends = (
+        _end(OTHER, "XYZ", date(2011, 1, 3), date(2012, 1, 1)),
+        _end(INFRATEL, "ABC", date(2011, 1, 3), date(2013, 1, 1)),
+    )
+
+    assert IdentityMap(entries, ends).ends() == IdentityMap(entries, ends[::-1]).ends()
+    assert [e.instrument_id for e in IdentityMap(entries, ends).ends()] == [INFRATEL, OTHER]

@@ -1,4 +1,5 @@
-"""Task 1.6: the market-data ports, the dataset and the test fakes stay deterministic and offline.
+"""Tasks 1.6 and 1.9: the market-data ports, the dataset, the test fakes and the provider contract
+suite stay deterministic and offline.
 
 Ruff's DC3 ban covers the domain only, so these files are scanned here: no clock, randomness, UUIDs,
 environment, processes or file access. Each forbidden pattern is proven to be detected.
@@ -14,6 +15,7 @@ SCANNED = (
     REPO_ROOT / "src/trading/application/ports.py",
     REPO_ROOT / "src/trading/application/market_dataset.py",
     *sorted((REPO_ROOT / "tests/fakes").glob("*.py")),
+    *sorted((REPO_ROOT / "tests/contract").glob("*.py")),
 )
 FORBIDDEN_MODULES = frozenset(
     {
@@ -86,7 +88,14 @@ def test_each_forbidden_pattern_is_detected(source: str, expected: str) -> None:
 def test_scan_covers_the_ports_dataset_and_fakes() -> None:
     names = {path.name for path in SCANNED}
 
-    assert {"ports.py", "market_dataset.py", "fake_market_data.py", "synthetic_market.py"} <= names
+    assert {
+        "ports.py",
+        "market_dataset.py",
+        "fake_market_data.py",
+        "synthetic_market.py",
+        "market_data_contract.py",
+        "test_fake_provider.py",
+    } <= names
 
 
 @pytest.mark.parametrize("path", SCANNED, ids=lambda p: p.name)

@@ -94,9 +94,9 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
   - Skill: `api-and-interface-design`.
   - Must NOT: add Clock, LedgerStore, AlertProvider or FeatureProducer ports.
 
-- [ ] **1.9 Provider contract suite**
+- [x] **1.9 Provider contract suite** (done 2026-10-06; awaiting owner review)
   - Objective: one reusable suite every `MarketDataProvider` must pass.
-  - Started in 1.6 as `tests/contract/test_market_data_contract.py` (provider factories in `PROVIDERS`); 1.9 completes it and reconciles the file names below.
+  - As built: `tests/contract/market_data_contract.py` (`MarketDataProviderContract`, a base class taking a `make_provider` fixture) and `tests/contract/test_fake_provider.py` (binds the fake). It absorbs the 1.6 suite (`test_market_data_contract.py`, removed, so nothing is duplicated). It adds an exhaustive known-exactly-by-as_of check at every knowledge instant (±1 µs, each probe in IST, UTC and UTC+14) covering every query and identity resolution of every symbol and instrument on every coverage day, compared as multisets; a look-ahead perturbation test (records known later change no earlier answer), separate effective-on-T tests for actions and membership, and series-change error rules. Domain fix: `IdentityMap.ends()` is in content order, not input order. Calendar: the port exposes no calendar query, so the v1-calendar knowledge-time limitation stays recorded for 1.15 and later.
   - Files: `tests/contract/market_data_contract.py`, `tests/contract/test_fake_provider.py`.
   - Dependencies: 1.6.
   - Acceptance (ADR-019 §2–3): **known-by-`as_of`** (nothing with `known_at > as_of`; an action announced before `as_of` with a later ex-date IS returned) and **effective-on-T among known** are tested separately; corporate actions are never filtered by ex-date alone; knowledge time for actions without an announcement date is not inferred (**no fallback policy** in Phase 1), and an unresolved action (`known_at=None`) is never returned as known at any `as_of`; bars of all series returned and tagged; legitimate absence returned as typed `Absence`, never omitted; membership by effective date and knowledge time; deterministic ordering; unknown-instrument errors. Calendar: v1 calendars carry no per-entry knowledge time (reference/calendar/format.md), so a provider must not present one as known-as-of any instant on a sealed or look-ahead-sensitive path until that is resolved.
@@ -106,7 +106,11 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
 
 **Checkpoint C2.**
 
-- [ ] **1.7 Legacy bhavcopy parser (infrastructure)**
+- [ ] **1.7 Legacy bhavcopy parser (infrastructure)** — **BLOCKED (owner decision 2026-10-06)**
+  - Blocked: the repository does not establish the legacy grammar (TIMESTAMP format; delimiter/quoting/line endings; header rules; trailing columns; later column variations; encoding/BOM; numeric grammar; whitespace/padding; duplicate semantics; one-date-per-file; full SERIES grammar). Implementation needs authoritative source documentation or an authoritative sample. No "UNVERIFIED" grammar assumptions are to be created.
+  - Decided output: a typed, source-faithful `LegacyBhavcopyRow` with SYMBOL, SERIES, observation date (from TIMESTAMP), OPEN, HIGH, LOW, CLOSE, LAST, PREVCLOSE, TOTTRDQTY, TOTTRDVAL, ISIN when present, and the source line/record number. It does **not** require `InstrumentId` or `known_at`. Conversion to `Bar` happens only after identity mapping (1.8) and a knowledge-time policy exist. `Bar` is not weakened.
+  - Knowledge time: none is manufactured. Parser execution time, file modification time, download/acquisition time, current time and the observation date are never used as `known_at`. A later data-governance decision (ADR) defines how an authoritative acquisition/publication fact becomes a knowledge time.
+  - The acceptance line below ("→ `Bar`s") is superseded by the decided output above.
   - Objective: parse the pre-July-2024 CM bhavcopy layout (SYMBOL, SERIES, OPEN, HIGH, LOW, CLOSE, LAST, PREVCLOSE, TOTTRDQTY, TOTTRDVAL, TIMESTAMP; ISIN when present).
   - Files: `src/trading/infrastructure/market_data/nse_files/legacy_bhavcopy.py`, `tests/fixtures/nse/legacy/*.csv` (synthetic), tests.
   - Dependencies: 1.4.

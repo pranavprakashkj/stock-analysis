@@ -119,7 +119,10 @@ class IdentityMap:
         self, entries: Iterable[IdentityMapEntry], ends: Iterable[IdentityMapEnd] = ()
     ) -> None:
         self._entries = tuple(entries)
-        self._ends = tuple(ends)
+        # Content order, so `ends()` never depends on the order records were supplied in.
+        self._ends = tuple(
+            sorted(ends, key=lambda e: (e.instrument_id.value, e.symbol.value, e.valid_from))
+        )
         by_key = {_key(entry): entry for entry in self._entries}
         self._end_of: dict[_AssignmentKey, IdentityMapEnd] = {}
         for end in self._ends:
