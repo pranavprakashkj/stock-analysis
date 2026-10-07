@@ -1,0 +1,69 @@
+# Synthetic index-membership history (task 1.13). Not real Nifty 100 data: instrument ids, dates and
+# sources are invented for tests. Format: reference/universe/format.md.
+format = "index-membership-v1"
+index = "NIFTY 100"
+version = "synthetic-2030-01"
+coverage_start = 2030-01-01
+coverage_end = 2030-01-15
+
+[seed]
+effective_date = 2030-01-01
+known_at = 2029-12-20
+source = "synthetic: seed constituent list"
+members = [
+    "INS-001", "INS-002", "INS-003", "INS-004", "INS-005", "INS-006", "INS-007", "INS-008", "INS-009", "INS-010",
+    "INS-011", "INS-012", "INS-013", "INS-014", "INS-015", "INS-016", "INS-017", "INS-018", "INS-019", "INS-020",
+    "INS-021", "INS-022", "INS-023", "INS-024", "INS-025", "INS-026", "INS-027", "INS-028", "INS-029", "INS-030",
+    "INS-031", "INS-032", "INS-033", "INS-034", "INS-035", "INS-036", "INS-037", "INS-038", "INS-039", "INS-040",
+    "INS-041", "INS-042", "INS-043", "INS-044", "INS-045", "INS-046", "INS-047", "INS-048", "INS-049", "INS-050",
+    "INS-051", "INS-052", "INS-053", "INS-054", "INS-055", "INS-056", "INS-057", "INS-058", "INS-059", "INS-060",
+    "INS-061", "INS-062", "INS-063", "INS-064", "INS-065", "INS-066", "INS-067", "INS-068", "INS-069", "INS-070",
+    "INS-071", "INS-072", "INS-073", "INS-074", "INS-075", "INS-076", "INS-077", "INS-078", "INS-079", "INS-080",
+    "INS-081", "INS-082", "INS-083", "INS-084", "INS-085", "INS-086", "INS-087", "INS-088", "INS-089", "INS-090",
+    "INS-091", "INS-092", "INS-093", "INS-094", "INS-095", "INS-096", "INS-097", "INS-098", "INS-099", "INS-100",
+]
+
+# Effective on a Saturday (not a session): applies from the next session on.
+[[changes]]
+instrument_id = "INS-050"
+change = "removed"
+effective_date = 2030-01-05
+known_at = 2030-01-02T19:00:00+05:30
+source = "synthetic: replacement notice 1"
+
+[[changes]]
+instrument_id = "INS-101"
+change = "added"
+effective_date = 2030-01-05
+known_at = 2030-01-02T19:00:00+05:30
+source = "synthetic: replacement notice 1"
+
+# Announced with a date only: known at the end of 3 Jan in IST (ADR-018 §1).
+[[changes]]
+instrument_id = "INS-007"
+change = "removed"
+effective_date = 2030-01-08
+known_at = 2030-01-03
+source = "synthetic: reconstitution notice 2"
+
+[[changes]]
+instrument_id = "INS-102"
+change = "added"
+effective_date = 2030-01-08
+known_at = 2030-01-03
+source = "synthetic: reconstitution notice 2"
+
+# A replacement announced with a UTC time.
+[[changes]]
+instrument_id = "INS-102"
+change = "removed"
+effective_date = 2030-01-14
+known_at = 2030-01-10T12:30:00Z
+source = "synthetic: replacement notice 3"
+
+[[changes]]
+instrument_id = "INS-103"
+change = "added"
+effective_date = 2030-01-14
+known_at = 2030-01-10T12:30:00Z
+source = "synthetic: replacement notice 3"
