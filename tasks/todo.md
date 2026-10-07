@@ -129,7 +129,8 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
   - Skill: `test-driven-development`, `doubt-driven-development`.
   - Must NOT: fetch the symbol-change list.
 
-- [ ] **1.12 Corporate-action parser (infrastructure)**
+- [ ] **1.12 Corporate-action parser (infrastructure)** — **BLOCKED (owner decision 2026-10-06)**
+  - Blocked under the same source-fidelity rule as 1.7: the repository does not sufficiently establish the corporate-action record format or the subject grammar (one verified example). Do not implement it with invented subject patterns. 1.8 also stays blocked (depends on 1.7; source-format evidence unresolved).
   - Objective: free-text subjects → typed `CorporateAction` with confidence.
   - Files: `.../nse_files/corporate_actions.py`, synthetic fixtures, tests.
   - Dependencies: 1.4.
@@ -166,8 +167,25 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
 
 **Checkpoint C3.**
 
-- [ ] **1.13 Index-membership reference format and loader**
+- [x] **1.13 Index-membership reference format and loader** (done 2026-10-07; awaiting owner review)
   - Objective: effective-dated membership with a source per change.
+  - Approved out of plan order (owner, 2026-10-06): dependencies met; the reference format is repository-defined, not an external NSE grammar.
+  - Decided semantics (owner, 2026-10-06). The model stays the dated `IndexMembershipChange` event model (no membership-period/snapshot model).
+    - **Gaps:** G1, every covered trading session has a defined membership set. G2, the format declares a coverage range and a complete seed membership set effective at the coverage start. G3, `REMOVED` of an instrument that is not a member and `ADDED` of an instrument that already is are rejected.
+    - **Overlaps:** O2, conflicting changes for one instrument on one effective date are rejected. O3, an instrument cannot be added while active or removed while inactive. O1 (overlapping snapshots) does not apply.
+    - **Effective dates** need not be trading sessions. The state on session D applies every change with effective date <= D. All changes of one effective date are applied before the member-count check.
+    - **Member count** is exactly 100 unless a sourced exception is explicitly recorded; no exception categories or values are invented.
+    - **Knowledge time:** every change has its own `known_at`; a date-only announcement follows ADR-018 §1 (end of that date); "members as of D" takes D and `as_of`; changes known later never affect an earlier `as_of` answer.
+  - Further owner decisions (2026-10-07):
+    - **Count exceptions:** a point-in-time sourced exception (`effective_on`, `expected_count`, `source`, `known_at`). On `effective_on`, a count other than 100 is valid only when an exception for that effective date is known by the requested `as_of`. No date ranges, no "until next change", no exception categories, no report abstraction. Exceptions are retained in `MembershipHistory` for later reporting.
+    - **As-of counts:** the complete history keeps the 100-member invariant (with exceptions). A knowledge-limited as-of view may temporarily hold another count, needs no exception, and is not flagged.
+    - **Coverage and seed:** the calendar must cover the declared coverage range; every session in it has a defined state; changes take effect inside the range. The seed is the initial state on `coverage_start`, and valid changes effective that day then apply under the normal rules.
+    - **Knowledge time:** effective date and knowledge time are independent; the earlier derived knowledge-order rule is removed. A change is visible in `members_on(D, as_of)` when `known_at <= as_of` and its effective date `<= D`.
+  - As built: `reference/universe/format.md` (TOML `index-membership-v1`; it separates owner-decided rules, implementation-derived rules and open concerns); `src/trading/infrastructure/market_data/membership.py`:
+    - `load_membership(text, calendar)` → `MembershipHistory` (`MembershipSeed`, sorted `IndexMembershipChange` records, `MemberCountException` records);
+    - `members_on(day, *, as_of)` and `count_exception(day, *, as_of)`;
+    - stable `MembershipProblem` categories.
+    Synthetic fixture: `tests/fixtures/universe/nifty100-synthetic.toml`. Open for 1.15: mapping a seed plus same-day changes to `MarketDataset` membership records (one change per instrument and date there).
   - Files: `reference/universe/format.md`, synthetic fixture, `src/trading/infrastructure/market_data/membership.py`, tests.
   - Dependencies: 1.4, 1.5.
   - Acceptance: rejects gaps, overlaps, missing sources, and member counts ≠ 100 unless a sourced exception is recorded; answers "members as of D". **Exceptions are listed in every report** (so they cannot hide a missing member).
