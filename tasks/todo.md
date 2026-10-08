@@ -1,6 +1,10 @@
 # Phase 1 Tasks: Foundation + Market-Data Infrastructure
 
-**Not started. Awaiting owner approval of the Phase 0 package and the Phase 1 command list.**
+**In progress.** Phase 1 approved by the owner on 2026-10-01 (before task 1.1).
+- Done, each awaiting owner review: 1.1–1.6, R1, 1.9, 1.13.
+- Blocked (owner decision 2026-10-06): 1.7, 1.8, 1.12. Not started because they depend on a blocked task: 1.10, 1.11, 1.15, 1.14.
+- Checkpoints C1 and C2: awaiting owner review. C3 and C4 need the blocked tasks.
+
 This file is the single source of Phase 1 task detail (SPEC §12 points here).
 Per task: objective · files · dependencies · acceptance · tests · skill · must NOT implement.
 Default skills for every task: `incremental-implementation` + `test-driven-development`; `code-review-and-quality` at each checkpoint.
@@ -119,7 +123,8 @@ Default skills for every task: `incremental-implementation` + `test-driven-devel
   - Skill: `test-driven-development`.
   - Must NOT: download; adjust prices; filter the universe.
 
-- [ ] **1.8 UDiFF parser and identity mapping (infrastructure)**
+- [ ] **1.8 UDiFF parser and identity mapping (infrastructure)** — **BLOCKED (owner decision 2026-10-06)**
+  - Blocked: depends on 1.7, and also has unresolved source-format evidence (see 1.12).
   - Objective: parse the UDiFF CM bhavcopy (ISIN, `SctySrs`) and map symbols to stable `InstrumentId`s via a symbol-change list.
   - Resolved in 1.6 (owner hold, 2026-10-06): a symbol assignment (`IdentityMapEntry`, open-ended) and its end (`IdentityMapEnd`, with `valid_to`) are separate records, each with its own `known_at`. The map builds `IdentityMap(entries, ends)` from the symbol-change list, recording each end at its own announcement time.
   - Files: `.../nse_files/udiff_bhavcopy.py`, `.../nse_files/identity.py`, synthetic fixtures, tests.
